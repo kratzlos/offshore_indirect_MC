@@ -1,3 +1,6 @@
+'''
+This version doesn't work. Problems are with changing the correct states
+'''
 import math
 import random
 
