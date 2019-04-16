@@ -6,6 +6,7 @@ N_SIMS = 100
 T_ZERO = 0
 INITIAL_STATE = [0, 0, 0, 0, 0, 0]
 
+# counters
 
 TG_rates = {'TG_lambda01': 0.79e-3, 'TG_lambda02': 0.77e-3, 'TG_lambda12': 1.86e-3, 'TG_mu10': 0.032, 'TG_mu20': 0.038}
 TC_rates = {'TC_lambda01': 0.67e-3, 'TC_lambda02': 0.74e-3, 'TC_lambda12': 2.12e-3, 'TC_mu10': 0.003, 'TC_mu20': 0.048}
@@ -45,14 +46,14 @@ def calculate_rate_out():  # create a dictionary of the rates of transitioning o
 def time_to_transition(t_now, state, rates):  # calculate at what time the new transitions is
     TG_state_rates = [rates['TG_0'], rates['TG_1'], rates['TG_2']]
     TC_state_rates = [rates['TC_0'], rates['TC_1'], rates['TC_2']]
-    EC_state_rates = [rates['EC_0'], rates['EC_2']]
-    TEG_state_rates = [rates['TEG_0'], rates['TEG_2']]
+    EC_state_rates = [rates['EC_0'], 0, rates['EC_2']]
+    TEG_state_rates = [rates['TEG_0'], 0, rates['TEG_2']]
     out_probability = TG_state_rates[state[0]] + TG_state_rates[state[1]] + TC_state_rates[state[2]] + \
                       TC_state_rates[state[3]] + EC_state_rates[state[4]] + TEG_state_rates[state[5]]
 
-    print("Probability of transitioning out of the system: ", out_probability)
+    # print("Probability of transitioning out of the system: ", out_probability)
     t_out = t_now - 1/out_probability*math.log(1-random.random())
-    print("Time at which transition will happen: ", t_out)
+    # print("Time at which transition will happen: ", t_out)
 
     return t_out, out_probability
 
@@ -64,14 +65,14 @@ def sample_new_state(state, rates, out_prob):
     TC_out_rates = [[[TC_rates['TC_lambda01'], 1], [TC_rates['TC_lambda02'], 2]],
                     [[TC_rates['TC_lambda12'], 2], [TC_rates['TC_mu10'], 0]],
                     [[TC_rates['TC_mu20'], 0]]]
-    EC_out_rates = [[[EC_rates['EC_lambda'], 2]], [[EC_rates['EC_mu'], 0]]]
-    TEG_out_rates = [[[TEG_rates['TEG_lambda'], 2]], [[TEG_rates['TEG_mu'], 0]]]
+    EC_out_rates = [[[EC_rates['EC_lambda'], 2]], [], [[EC_rates['EC_mu'], 0]]]
+    TEG_out_rates = [[[TEG_rates['TEG_lambda'], 2]], [], [[TEG_rates['TEG_mu'], 0]]]
 
     sample_r = random.random()  # random sample between 0.0 and 1.0
     sum_probabilities = 0
     new_state = state
 
-    print("State before change: ", new_state)
+    # print("State before change: ", new_state)
     for j in range(2):
         changing_state = TG_out_rates[j][0][1]
         for rate in TG_out_rates[state[j]]:
@@ -79,7 +80,7 @@ def sample_new_state(state, rates, out_prob):
                 break
             probability = rate[0] / out_prob
             sum_probabilities += probability
-            print("Checking state {}-> prob at {} with sample at {} and sum of probabilities {}".format(j, probability, sample_r, sum_probabilities))
+            # print("Checking state {}-> prob at {} with sample at {} and sum of probabilities {}".format(j, probability, sample_r, sum_probabilities))
             if sum_probabilities > sample_r:
                 new_state[j] = changing_state
                 break
@@ -94,8 +95,10 @@ def sample_new_state(state, rates, out_prob):
             for rate in TC_out_rates[state[j]]:
                 probability = rate[0] / out_prob
                 sum_probabilities += probability
-                print("Checking state {}-> prob at {} with sample at {} and sum of probabilities {}".format(j, probability, sample_r, sum_probabilities))
+                # print("Checking state {}-> prob at {} with sample at {} and sum of probabilities {}".format(j, probability, sample_r, sum_probabilities))
                 if sum_probabilities > sample_r:
+                    if j == 2:
+                        new_state[j-1] = changing_state
                     new_state[j] = changing_state
                     break
                 else:
@@ -108,9 +111,9 @@ def sample_new_state(state, rates, out_prob):
                 break
             probability = rate[0] / out_prob
             sum_probabilities += probability
-            print("Checking state {}-> prob at {} with sample at {} and sum of probabilities {}".format(4, probability, sample_r, sum_probabilities))
+            # print("Checking state {}-> prob at {} with sample at {} and sum of probabilities {}".format(4, probability, sample_r, sum_probabilities))
             if sum_probabilities > sample_r:
-                new_state[4] = changing_state
+                new_state[3] = changing_state
                 break
             else:
                 changing_state = rate[1]
@@ -122,17 +125,27 @@ def sample_new_state(state, rates, out_prob):
                 break
             probability = rate[0] / out_prob
             sum_probabilities += probability
-            print("Checking state {}-> prob at {} with sample at {} and sum of probabilities {}".format(5, probability, sample_r, sum_probabilities))
+            # print("Checking state {}-> prob at {} with sample at {} and sum of probabilities {}".format(5, probability, sample_r, sum_probabilities))
             if sum_probabilities > sample_r:
-                new_state[5] = changing_state
+                new_state[4] = changing_state
                 break
             else:
                 changing_state = rate[1]
+                new_state[5] = changing_state
 
     return new_state
 
 
-# def run_MC()
+def run_MC():
+    t = 0
+    current_state = INITIAL_STATE
+    while t < T_MISSION:
+        t_current, prob_trans = time_to_transition(t, current_state, out_transition_rates)
+        new_state = sample_new_state(current_state, out_transition_rates, prob_trans)
+        t = t_current
+        current_state = new_state
+        # print("Current time: ", t)
+        print("Current state: ", current_state)
 
 
 all_states = create_states()  # get list of all possible states
@@ -143,3 +156,5 @@ print("Out transition rates of all components for each of its states: ", out_tra
 t_transition, prob_transition = time_to_transition(T_ZERO, INITIAL_STATE, out_transition_rates)
 newest_state = sample_new_state(INITIAL_STATE, out_transition_rates, prob_transition)
 print("Newest state: ", newest_state)
+print("Running MC simulation...")
+run_MC()
