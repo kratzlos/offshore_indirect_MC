@@ -1,12 +1,18 @@
+'''
+Indirect Monte Carlo Simulation for 6 repair crews
+'''
 import math
 import random
+import numpy as np
 
-T_MISSION = 10000
+T_MISSION = 1000
 N_SIMS = 100
 T_ZERO = 0
 INITIAL_STATE = [0, 0, 0, 0, 0, 0]
 
 # counters
+counter = np.zeros((16, T_MISSION))
+count_levels = np.zeros((7, T_MISSION))
 
 TG_rates = {'TG_lambda01': 0.79e-3, 'TG_lambda02': 0.77e-3, 'TG_lambda12': 1.86e-3, 'TG_mu10': 0.032, 'TG_mu20': 0.038}
 TC_rates = {'TC_lambda01': 0.67e-3, 'TC_lambda02': 0.74e-3, 'TC_lambda12': 2.12e-3, 'TC_mu10': 0.003, 'TC_mu20': 0.048}
@@ -54,7 +60,77 @@ def time_to_transition(t_now, state, rates):  # calculate at what time the new t
 
 def sample_new_state(state, out_probability):
     component = 0
+    sum_probabilities = 0
+    sample_r = random.random()
+    new_state = state
     for i in range(len(state)):
-        
-    
+        if sum_probabilities > sample_r:
+            break
+        component_rates = CHANGE_DICT[i][state[i]]
+        new_state_component = component_rates[0][1]
+        for change_rate in component_rates:
+            sum_probabilities += change_rate[0] / out_probability
+            if sum_probabilities > sample_r:
+                # print("Component: {}. Sum prob: {}. New state component: {}.".format(i, sum_probabilities, new_state_component))
+                new_state[component] = new_state_component
+                break
+
+            else:
+                new_state_component = change_rate[1]
+        component += 1
+
     return new_state
+
+
+'''
+def determine_production_level(state):
+    gas_prod = 0
+    oil_prod = 0
+    wat_prod = 0
+    
+
+
+    return production_level
+'''
+
+
+def run_monte_carlo():
+    t = 0
+    current_state = INITIAL_STATE
+    while t < T_MISSION:
+        t_current, prob_trans = time_to_transition(t, current_state, out_transition_rates)
+        new_state = sample_new_state(current_state, prob_trans)
+
+        for i in range(int(t), int(t_current)):
+            if int(t_current) > T_MISSION:
+                break
+            counter[new_state[0]][i] += 1
+            counter[new_state[1] + 3][i] += 1
+            counter[new_state[2] + 6][i] += 1
+            counter[new_state[3] + 9][i] += 1
+            if new_state[4] == 2:
+                counter[13][i] += 1
+            elif new_state[4] == 0:
+                counter[12][i] += 1
+            if new_state[5] == 2:
+                counter[15][i] += 1
+            elif new_state[5] == 0:
+                counter[14][i] += 1
+
+        t = t_current
+        current_state = new_state
+        # print("Current time: ", t)
+        # print("Current state: ", current_state)
+
+
+
+out_transition_rates = calculate_rate_out()
+print("Out transition rates of all components for each of its states: ", out_transition_rates)
+t_transition, prob_transition = time_to_transition(T_ZERO, INITIAL_STATE, out_transition_rates)
+newest_state = sample_new_state(INITIAL_STATE, prob_transition)
+print("Newest state: ", newest_state)
+print("Running MC simulation...")
+for j in range(N_SIMS):
+    run_monte_carlo()
+
+print(counter)
